@@ -64,7 +64,8 @@ class MergeWeather(BaseEstimator, TransformerMixin):
         return self
     
     def transform(self, X):
-        data = pd.read_csv("weather_data_cleaned.csv")
+        file_path_weather = "/kaggle/weather_data-cleaned.csv"
+        data = pd.read_csv(file_path_weather)
         data['date'] = pd.to_datetime(data['date']).astype('datetime64[us]')
         merged_data = pd.merge_asof(X, data, on='date')
         merged_data.drop(columns='date', inplace=True)
@@ -79,7 +80,9 @@ preprocess = Pipeline([
     ("MergeWeather", MergeWeather())
 ])        
 
-df = pd.read_parquet("train.parquet")
+file_path_train = "/kaggle/mdsb-2023/train.parquet"
+
+df = pd.read_parquet(file_path_train)
 df = df.sort_values('date') # Sort by date 
 
 X = preprocess.fit_transform(df)
@@ -91,7 +94,8 @@ model = RandomForestRegressor()
 model.fit(X,y)
 
 # Import test set
-df_test = pd.read_parquet("final_test.parquet")
+file_path_test = "/kaggle/mdsb-2023/final_test.parquet"
+df_test = pd.read_parquet(file_path_test)
 df_test = df_test.sort_values('date') # Sort by date 
 new_order = df_test.index.tolist() #Keep index order
 
@@ -102,7 +106,8 @@ predictions_df = pd.DataFrame({'Id': new_order, 'log_bike_count': predictions})
 predictions_df = predictions_df.sort_values('Id')
 
 # Specify the file path
-csv_file_path = 'submission.csv'
+csv_file_path = 'kaggle/working/submission.csv'
 
 # Write the DataFrame to a CSV file
 predictions_df.to_csv(csv_file_path, index=False)
+
