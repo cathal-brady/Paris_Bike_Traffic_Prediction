@@ -68,8 +68,8 @@ class MergeWeather(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, X):
-        data = pd.read_csv(os.path.join(
-            "..", "Datasets", "weather_data_cleaned.csv"))
+        file_path_weather = "/kaggle/input/weather_data-cleaned.csv"
+        data = pd.read_csv(file_path_weather)        
         data['date'] = pd.to_datetime(data['date']).astype('datetime64[us]')
         merged_data = pd.merge_asof(X, data, on='date')
         # merged_data.drop(columns='date', inplace=True)
@@ -84,8 +84,8 @@ class MergeMultimodal(BaseEstimator, TransformerMixin):
     def transform(self, X, y=None):
         X_copy = X.copy()
         # Import Multimodal Data
-        mult_df = pd.read_csv(os.path.join(
-            "..", "Datasets", "multimodal_data.csv"))
+        file_path_multimodal = "/kaggle/input/multimodal_data.csv"
+        mult_df = pd.read_csv(file_path_multimodal)
         mult_df['date'] = pd.to_datetime(
             mult_df['date']).astype('datetime64[us]')
         # Averaging and scaling the count
@@ -112,7 +112,7 @@ preprocess = Pipeline([
 ])
 
 
-file_path_train = "/kaggle/mdsb-2023/train.parquet"
+file_path_train = "/kaggle/input/mdsb-2023/train.parquet"
 
 df = pd.read_parquet(file_path_train)
 df = df.sort_values('date')  # Sort by date
@@ -126,7 +126,7 @@ model = RandomForestRegressor()
 model.fit(X, y)
 
 # Import test set
-file_path_test = "/kaggle/mdsb-2023/final_test.parquet"
+file_path_test = "/kaggle/input/mdsb-2023/final_test.parquet"
 df_test = pd.read_parquet(file_path_test)
 df_test = df_test.sort_values('date')  # Sort by date
 new_order = df_test.index.tolist()  # Keep index order
@@ -138,7 +138,7 @@ predictions_df = pd.DataFrame({'Id': new_order, 'log_bike_count': predictions})
 predictions_df = predictions_df.sort_values('Id')
 
 # Specify the file path
-csv_file_path = 'kaggle/working/submission.csv'
+csv_file_path = '/kaggle/output/working/submission.csv'
 
 # Write the DataFrame to a CSV file
 predictions_df.to_csv(csv_file_path, index=False)
