@@ -176,7 +176,7 @@ predictions_df = pd.DataFrame({'Id': new_order, 'log_bike_count': predictions})
 predictions_df = predictions_df.sort_values('Id')
 
 # Specify the file path
-csv_file_path = '/kaggle/output/working/submission.csv'
+csv_file_path = '/kaggle/working/submission.csv'
 
 # Write the DataFrame to a CSV file
 predictions_df.to_csv(csv_file_path, index=False)
