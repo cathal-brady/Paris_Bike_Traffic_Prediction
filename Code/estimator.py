@@ -28,14 +28,16 @@ class DateFormatter(BaseEstimator, TransformerMixin):
         X_copy = X.copy()
         X_copy['date'] = pd.to_datetime(X_copy['date'])
         X_copy['year'] = X_copy['date'].dt.year
-        X_copy['month'] = X_copy['date'].dt.month
-        # X_copy['week'] = X_copy['date'].dt.isocalendar().week
+        X_copy['mnth'] = X_copy['date'].dt.month
+        #X_copy['week'] = X_copy['date'].dt.isocalendar().week
         X_copy['weekday'] = (X_copy['date'].dt.dayofweek + 1)
-        # X_copy['day'] = X_copy['date'].dt.day
-        X_copy['hour'] = X_copy['date'].dt.hour
-        # X_copy['minute'] = X_copy['date'].dt.minute  # Not relevant
-        # X_copy.drop(columns='date', inplace=True)  # Will be dropped later, useful to keep to merge wither other dfs.
-        return X_copy
+        #X_copy['day'] = X_copy['date'].dt.day
+        X_copy['hr'] = X_copy['date'].dt.hour
+        X_copy['hr_sin'] = np.sin(X_copy.hr*(2.*np.pi/24))
+        X_copy['hr_cos'] = np.cos(X_copy.hr*(2.*np.pi/24))
+        X_copy['mnth_sin'] = np.sin((X_copy.mnth-1)*(2.*np.pi/12))
+        X_copy['mnth_cos'] = np.cos((X_copy.mnth-1)*(2.*np.pi/12))
+        X_copy.drop(['mnth', 'hr'], axis=1, inplace=True)
 
 
 class AddRestrictionLevel(BaseEstimator, TransformerMixin):
