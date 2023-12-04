@@ -16,7 +16,7 @@ class ColumnSelector(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, X):
-        return X[['counter_id', 'date']]  # , 'coordinates'
+        return X[['counter_id', 'date']]
 
 
 class DateFormatter(BaseEstimator, TransformerMixin):
@@ -34,6 +34,42 @@ class DateFormatter(BaseEstimator, TransformerMixin):
         # X_copy['day'] = X_copy['date'].dt.day
         X_copy['hour'] = X_copy['date'].dt.hour
         # X_copy['minute'] = X_copy['date'].dt.minute  # Not relevant
+        # X_copy.drop(columns='date', inplace=True)  # Will be dropped later, useful to keep to merge wither other dfs.
+        return X_copy
+
+
+class AddRestrictionLevel(BaseEstimator, TransformerMixin):
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        X_copy = X.copy()
+
+        # Define date ranges and corresponding restriction levels
+        date_ranges = [
+            ('16/10/2020', '17/10/2020'),
+            ('17/10/2020', '28/11/2020'),
+            ('28/11/2020', '15/12/2020'),
+            ('15/12/2020', '16/01/2021'),
+            ('16/01/2021', '19/03/2021'),
+            ('19/03/2021', '03/05/2021'),
+            ('03/05/2021', '09/06/2021'),
+            ('09/06/2021', '20/06/2021'),
+            ('20/06/2021', '30/06/2021')
+        ]
+
+        restriction_levels = [3, 5, 4, 2, 1, 5, 4, 2, 1, 0]
+
+        # Convert date strings to datetime objects
+        date_ranges = [(pd.to_datetime(start, dayfirst=True), pd.to_datetime(
+            end, dayfirst=True)) for start, end in date_ranges]
+
+        # Add restriction_level column based on date ranges
+        X_copy['restriction_level'] = 0  # Default value
+        for level, (start_date, end_date) in zip(restriction_levels, date_ranges):
+            mask = (X_copy['date'] >= start_date) & (X_copy['date'] < end_date)
+            X_copy.loc[mask, 'restriction_level'] = level
+
         return X_copy
 
 
@@ -47,6 +83,7 @@ class HolidaysFR(BaseEstimator, TransformerMixin):
         X_copy = X.copy()
         X_copy['is_Holiday'] = X_copy['date'].apply(is_holiday)
         X_copy['is_Weekend'] = X_copy['weekday'].apply(is_weekend)
+        # X_copy.drop(columns='date', inplace=True)
         return X_copy
 
 
@@ -62,14 +99,14 @@ class EncodeCounter(BaseEstimator, TransformerMixin):
         return X_copy
 
 
-class MergeWeather(BaseEstimator, TransformerMixin):
+class MergeWeatherCovid(BaseEstimator, TransformerMixin):
 
     def fit(self, X, y=None):
         return self
 
     def transform(self, X):
-        file_path_weather = "/kaggle/input/weather_data-cleaned.csv"
-        data = pd.read_csv(file_path_weather)        
+        data = pd.read_csv(os.path.join(
+            "..", "Datasets", "weather_data_cleaned.csv"))
         data['date'] = pd.to_datetime(data['date']).astype('datetime64[us]')
         merged_data = pd.merge_asof(X, data, on='date')
         # merged_data.drop(columns='date', inplace=True)
@@ -84,8 +121,8 @@ class MergeMultimodal(BaseEstimator, TransformerMixin):
     def transform(self, X, y=None):
         X_copy = X.copy()
         # Import Multimodal Data
-        file_path_multimodal = "/kaggle/input/multimodal_data.csv"
-        mult_df = pd.read_csv(file_path_multimodal)
+        mult_df = pd.read_csv(os.path.join(
+            "..", "Datasets", "multimodal_data.csv"))
         mult_df['date'] = pd.to_datetime(
             mult_df['date']).astype('datetime64[us]')
         # Averaging and scaling the count
@@ -105,9 +142,10 @@ class MergeMultimodal(BaseEstimator, TransformerMixin):
 preprocess = Pipeline([
     ("ColumnSelector", ColumnSelector()),
     ("DateFormatter", DateFormatter()),
+    ("AddRestrictionLevel", AddRestrictionLevel()),
     ("HolidaysFR", HolidaysFR()),
     ("EncodeCounter", EncodeCounter()),
-    ("MergeWeather", MergeWeather()),
+    ("MergeWeatherCovid", MergeWeatherCovid()),
     ("MergeMultimodal", MergeMultimodal())
 ])
 
