@@ -1,22 +1,26 @@
-import pandas as pd
-import numpy as np
+# Imports
+from datetime import datetime as dt
 import os
-from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.preprocessing import StandardScaler
-from sklearn.pipeline import Pipeline
+import joblib
+import numpy as np
+import pandas as pd
 import holidays
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error
+from catboost import CatBoostRegressor
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.model_selection import KFold
+from sklearn.pipeline import Pipeline
 
 
+# Classes Required
 class ColumnSelector(BaseEstimator, TransformerMixin):
 
     def fit(self, X, y=None):
         return self
 
     def transform(self, X):
-        return X[['counter_id', 'date']]
+        X_copy = X.copy()
+        X_copy.reset_index(drop=True)
+        return X_copy[['counter_id', 'date', 'site_id', 'log_bike_count']]
 
 
 class DateFormatter(BaseEstimator, TransformerMixin):
@@ -27,17 +31,16 @@ class DateFormatter(BaseEstimator, TransformerMixin):
     def transform(self, X):
         X_copy = X.copy()
         X_copy['date'] = pd.to_datetime(X_copy['date'])
-        X_copy['year'] = X_copy['date'].dt.year
-        X_copy['mnth'] = X_copy['date'].dt.month
-        #X_copy['week'] = X_copy['date'].dt.isocalendar().week
+        X_copy['month'] = X_copy['date'].dt.month
+        X_copy['week'] = X_copy['date'].dt.isocalendar().week
         X_copy['weekday'] = (X_copy['date'].dt.dayofweek + 1)
-        #X_copy['day'] = X_copy['date'].dt.day
         X_copy['hr'] = X_copy['date'].dt.hour
         X_copy['hr_sin'] = np.sin(X_copy.hr*(2.*np.pi/24))
         X_copy['hr_cos'] = np.cos(X_copy.hr*(2.*np.pi/24))
-        X_copy['mnth_sin'] = np.sin((X_copy.mnth-1)*(2.*np.pi/12))
-        X_copy['mnth_cos'] = np.cos((X_copy.mnth-1)*(2.*np.pi/12))
-        X_copy.drop(['mnth', 'hr'], axis=1, inplace=True)
+        X_copy.drop('week', axis=1, inplace=True)
+        X_copy = X_copy.sort_values('date')
+        X_copy['track_id'] = X_copy.index
+        return X_copy
 
 
 class AddRestrictionLevel(BaseEstimator, TransformerMixin):
@@ -82,22 +85,36 @@ class HolidaysFR(BaseEstimator, TransformerMixin):
     def transform(self, X):
         def is_holiday(date): return 1 if date in holidays.FR() else 0
         def is_weekend(day): return 1 if day in (6, 7) else 0
+        def school_holiday(date, school_hols): return 1 if any(
+            start <= date <= end for start, end in school_hols) else 0
+
+        Autumn_20 = (dt(2020, 10, 18), dt(2023, 11, 1))
+        Xmas_20 = (dt(2020, 12, 20), dt(2021, 1, 3))
+        Winter_21 = (dt(2021, 2, 14), dt(2021, 2, 28))
+        Spring_21 = (dt(2021, 4, 11), dt(2021, 4, 25))
+        Summer_21 = (dt(2021, 7, 7), dt(2021, 9, 7))
+
+        school_hols = [Autumn_20, Xmas_20, Winter_21, Spring_21, Summer_21]
+
         X_copy = X.copy()
         X_copy['is_Holiday'] = X_copy['date'].apply(is_holiday)
         X_copy['is_Weekend'] = X_copy['weekday'].apply(is_weekend)
+        X_copy['is_School_Holiday'] = X_copy['date'].apply(
+            lambda date: school_holiday(date, school_hols))
         # X_copy.drop(columns='date', inplace=True)
         return X_copy
 
 
-class EncodeCounter(BaseEstimator, TransformerMixin):
-
+class RushHour(BaseEstimator, TransformerMixin):
     def fit(self, X, y=None):
         return self
 
     def transform(self, X):
         X_copy = X.copy()
-        X_copy = pd.get_dummies(
-            X_copy, columns=['counter_id'], dtype=int, drop_first=True)
+        X_copy['rush_hour'] = ((X_copy['weekday'] <= 5) &
+                               ((X_copy['hr'].between(7, 9)) | (X_copy['hr'].between(17, 20))) &
+                               (X_copy['is_Holiday'] == 0)).astype(int)
+        X_copy.drop('hr', axis=1, inplace=True)  # no longer needed
         return X_copy
 
 
@@ -115,70 +132,225 @@ class MergeWeatherCovid(BaseEstimator, TransformerMixin):
         return merged_data
 
 
-class MergeMultimodal(BaseEstimator, TransformerMixin):
+class SplitBySite(BaseEstimator, TransformerMixin):
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        X_copy = X.copy()
+        sub_dataframes = []
+
+        unique_site_ids = X_copy['site_id'].unique()
+
+        for site_id in unique_site_ids:
+            sub_df = X_copy[X_copy['site_id'] == site_id].copy()
+            sub_dataframes.append(sub_df)
+
+        return sub_dataframes
+
+
+class MergeMultiModalSites(BaseEstimator, TransformerMixin):
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        X_copy = X.copy()
+        encoded_dataframes = []
+
+        # Import Multimodal Data
+        mult_df = pd.read_csv(os.path.join(
+            "..", "Datasets", "multimodal_dummy_clean.csv"))
+        mult_df['date'] = pd.to_datetime(
+            mult_df['date']).astype('datetime64[us]')
+
+        unique_values_dict = dict(
+            zip(mult_df['nearest site'].unique(), mult_df['minimum distance'].unique()))
+
+        for i in range(len(X_copy)):
+            if unique_values_dict[X_copy[i]['site_id'].iloc[0]] > 1:
+                temp = mult_df.drop(
+                    columns=['site_id', 'latitude', 'longitude', 'minimum distance', 'nearest site'])
+                result_df = temp.groupby('date').mean().reset_index()
+                X_copy[i] = pd.merge_asof(X_copy[i], result_df, on='date')
+            else:
+                mask = mult_df['nearest site'] == X_copy[i]['site_id'].iloc[0]
+                temp = mult_df[mask].copy()
+                temp.drop(columns=['site_id', 'latitude', 'longitude',
+                          'minimum distance', 'nearest site'], inplace=True)
+                X_copy[i] = pd.merge_asof(X_copy[i], temp, on='date')
+                numeric_cols = X_copy[i].select_dtypes(
+                    include=['number']).columns
+                X_copy[i][numeric_cols] = X_copy[i][numeric_cols].fillna(
+                    X_copy[i][numeric_cols].mean())
+            encoded_dataframes.append(X_copy[i])
+        return encoded_dataframes
+
+
+class EncodeCounter(BaseEstimator, TransformerMixin):
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        X_copy = X.copy()
+        encoded_dataframes = []
+
+        for i in range(len(X_copy)):
+            X_copy[i]['counter_id'] = X_copy[i]['counter_id'].astype('object')
+            encoded_df = pd.get_dummies(
+                X_copy[i], columns=['counter_id'], dtype=int, drop_first=True)
+            encoded_dataframes.append(encoded_df)
+        return encoded_dataframes
+
+
+class DropOutliers(BaseEstimator, TransformerMixin):
+    def __init__(self, threshold=3):
+        self.threshold = threshold
 
     def fit(self, X, y=None):
         return self
 
-    def transform(self, X, y=None):
+    def transform(self, X):
         X_copy = X.copy()
-        # Import Multimodal Data
-        mult_df = pd.read_csv(os.path.join(
-            "..", "Datasets", "multimodal_data.csv"))
-        mult_df['date'] = pd.to_datetime(
-            mult_df['date']).astype('datetime64[us]')
-        # Averaging and scaling the count
-        mult_df = pd.DataFrame(mult_df.groupby(['date'])[
-                               'count'].sum()).reset_index()
-        scaler = StandardScaler()
-        numerical_columns = mult_df.select_dtypes(include='number').columns
-        mult_df[numerical_columns] = scaler.fit_transform(
-            mult_df[numerical_columns])
-        # Merging data
-        merged_data = pd.merge_asof(X_copy, mult_df, on='date')
-        merged_data.rename(columns={'count': 'average_multimodal_count'})
-        merged_data.drop(columns='date', inplace=True)
-        return merged_data
+        cleaned_dataframes = []
+        for i in range(len(X_copy)):
+            mean_value = X_copy[i]['log_bike_count'].mean()
+            std_dev = X_copy[i]['log_bike_count'].std()
+            # #Define a threshold
+            threshold = 3
+            # # Identify outliers
+            outliers = (X_copy[i]['log_bike_count'] -
+                        mean_value).abs() > threshold * std_dev
+            # # Drop outliers
+            mask = outliers == False
+            cleaned_dataframes.append(X_copy[i][mask])
+        return cleaned_dataframes
 
 
-preprocess = Pipeline([
-    ("ColumnSelector", ColumnSelector()),
-    ("DateFormatter", DateFormatter()),
-    ("AddRestrictionLevel", AddRestrictionLevel()),
-    ("HolidaysFR", HolidaysFR()),
-    ("EncodeCounter", EncodeCounter()),
-    ("MergeWeatherCovid", MergeWeatherCovid()),
-    ("MergeMultimodal", MergeMultimodal())
+class ModelGen(BaseEstimator, TransformerMixin):
+    def __init__(self, model=CatBoostRegressor(loss_function='RMSE', depth=10, iterations=200, learning_rate=0.1, verbose=False),
+                 random_state=42, save_path=(os.path.join("..", "Trained_Models"))):
+
+        # Checking for the existence of the target path
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+
+        self.model = model
+        self.random_state = random_state
+        self.best_models = []  # List to store the best model from each fold
+        self.save_path = save_path
+
+    def fit(self, X, y=None):
+        self.best_models = []  # Clear previous best models
+        kf = KFold(n_splits=10, shuffle=True, random_state=self.random_state)
+
+        for idx, df in enumerate(X):
+            # Extract DataFrames from the list
+            X_train = df.drop(
+                columns=['log_bike_count', 'site_id', 'date', 'track_id'], axis=1)
+            y_train = df['log_bike_count']
+
+            # Fit the model on the current fold
+            self.model.fit(X_train, y_train)
+
+            # Save the trained model to the desktop
+            model_filename = f"site_ID_{df['site_id'].iloc[0]}_model_catboost.joblib"
+            model_path = os.path.join(
+                os.path.expanduser(self.save_path), model_filename)
+            joblib.dump(self.model, model_path)
+
+            # Store the model for reference
+            self.best_models.append(self.model)
+
+        return self
+
+    def predict(self, X):
+        predictions = []
+        for idx, df in enumerate(X):
+            site_id_value = df['site_id'].iloc[0]
+            model_path = os.path.join(
+                self.save_path, f"site_ID_{site_id_value}_model_catboost.joblib")
+
+            if os.path.exists(model_path):
+                model = joblib.load(model_path)
+                df['prediction'] = model.predict(
+                    df.drop(columns=['log_bike_count', 'site_id', 'date', 'track_id'], axis=1))
+                predictions.append(df)
+            else:
+                print(f"Model file not found for site_id {site_id_value}")
+
+        return pd.concat(predictions, ignore_index=True)
+
+
+def add_prediction_column(X):
+    for df in X:
+        # Extract the first value of the column 'site_id'
+        site_id_value = df['site_id'].iloc[0]
+        # df.drop(columns='log_bike_count', inplace=True)
+
+        # Construct the path for the model file
+        model_path = os.path.join(
+            "..", "Trained_Models", f"site_id_{site_id_value}_model_catboost.joblib")
+
+        # Check if the model file exists
+        if os.path.exists(model_path):
+            # Load the model
+            model = joblib.load(model_path)
+            # Add a column 'prediction' to the DataFrame with model predictions
+            df['prediction'] = model.predict(
+                df.drop(columns=['log_bike_count', 'site_id', 'date', 'track_id'], axis=1))
+            # df.drop('log_bike_count', inplace=True)
+        else:
+            print(f"Model file not found for site_id {site_id_value}")
+    out = pd.concat(X, ignore_index=True)
+    out.drop(columns='log_bike_count', inplace=True)
+
+    return out
+
+
+# Pipelines
+preprocessor = Pipeline([
+    ('column_selector', ColumnSelector()),
+    ('date_formatter', DateFormatter()),
+    ('add_restriction_level', AddRestrictionLevel()),
+    ('holidays_fr', HolidaysFR()),
+    ('add_rush_hours', RushHour()),
+    ('MergeWeatherCovid', MergeWeatherCovid()),
 ])
 
+spliter = Pipeline([
+    ('SplitBySite', SplitBySite()),
+    ("MergeMultiModalSites", MergeMultiModalSites()),
+    ('EncodeCounter', EncodeCounter()),
+    ('DropOutliers', DropOutliers())
+])
 
-file_path_train = "/kaggle/input/mdsb-2023/train.parquet"
+# Combined Pipeline
+combined_pipeline = Pipeline([
+    ('preprocessor', preprocessor),
+    ('spliter', spliter)
+])
 
-df = pd.read_parquet(file_path_train)
-df = df.sort_values('date')  # Sort by date
+# Training and Generating Models:
+df = pd.read_parquet(os.path.join("..", "Datasets", "train.parquet"))
+train_data = combined_pipeline.fit_transform(df)
+ModelGen().fit(train_data)
 
-X = preprocess.fit_transform(df)
-y = df['log_bike_count']
+# Predicting
+df_test = pd.read_parquet(os.path.join("..", "Datasets", "final_test.parquet"))
+df_test['log_bike_count'] = 0
 
-model = RandomForestRegressor()
-
-# Fit the model on the training data
-model.fit(X, y)
-
-# Import test set
-file_path_test = "/kaggle/input/mdsb-2023/final_test.parquet"
-df_test = pd.read_parquet(file_path_test)
-df_test = df_test.sort_values('date')  # Sort by date
-new_order = df_test.index.tolist()  # Keep index order
-
-
-df_test = preprocess.transform(df_test)
-predictions = model.predict(df_test)
-predictions_df = pd.DataFrame({'Id': new_order, 'log_bike_count': predictions})
-predictions_df = predictions_df.sort_values('Id')
+# Run Preprocessing Pipeline
+df_test_preprocessed = combined_pipeline.fit_transform(df_test)
+df_test_preprocessed = add_prediction_column(df_test_preprocessed)
+df_sorted = df_test_preprocessed.sort_values(by='track_id')
+df_sorted.rename(
+    columns={'track_id': 'Id', 'prediction': 'log_bike_count'}, inplace=True)
+# Extract the selected columns
+selected_columns = ['Id', 'log_bike_count']
+result_df = df_sorted[selected_columns]
 
 # Specify the file path
 csv_file_path = '/kaggle/working/submission.csv'
 
 # Write the DataFrame to a CSV file
-predictions_df.to_csv(csv_file_path, index=False)
+result_df.to_csv(csv_file_path, index=False)
