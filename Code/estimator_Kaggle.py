@@ -124,7 +124,7 @@ class MergeWeatherCovid(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, X):
-        weather_name = '/kaggle/input/weather_data_cleaned.csv'
+        weather_name = '/kaggle/input/mdsb-datasets/weather_data_cleaned.csv'
         data = pd.read_csv(weather_name)
         data['date'] = pd.to_datetime(data['date']).astype('datetime64[us]')
         merged_data = pd.merge_asof(X, data, on='date')
@@ -157,7 +157,7 @@ class MergeMultiModalSites(BaseEstimator, TransformerMixin):
         encoded_dataframes = []
 
         # Import Multimodal Data
-        multimodal_name = '/kaggle/input/multimodal_dummy_clean.csv'
+        multimodal_name = '/kaggle/input/mdsb-datasets/multimodal_dummy_clean.csv'
         mult_df = pd.read_csv(multimodal_name)
         mult_df['date'] = pd.to_datetime(
             mult_df['date']).astype('datetime64[us]')
