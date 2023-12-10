@@ -272,6 +272,9 @@ class AddRestrictionLevel(BaseEstimator, TransformerMixin):
         ]
 
         restriction_levels = [3, 5, 4, 2, 1, 5, 4, 2, 1, 0]
+        # These can be found here:
+        #https://opendata.paris.fr/explore/dataset/observatoire-des\
+        #   -mobilites-evenements-exceptionnels-indicateurs-de-mobilites/
 
         date_ranges = [(pd.to_datetime(start, dayfirst=True), pd.to_datetime(
             end, dayfirst=True)) for start, end in date_ranges]
@@ -373,7 +376,8 @@ class HolidaysFR(BaseEstimator, TransformerMixin):
         Winter_21 = (dt(2021, 2, 14), dt(2021, 2, 28))
         Spring_21 = (dt(2021, 4, 11), dt(2021, 4, 25))
         Summer_21 = (dt(2021, 7, 7), dt(2021, 9, 7))
-
+        # These dates can be found here:
+        # https://www.holidays-info.com/france/school-holidays/2021/
         school_hols = [Autumn_20, Xmas_20, Winter_21, Spring_21, Summer_21]
 
         X_copy = X.copy()
@@ -726,6 +730,8 @@ class MergeMultiModalSites(BaseEstimator, TransformerMixin):
         mult_df = pd.read_csv(mulmode_name)
         mult_df['date'] = pd.to_datetime(
             mult_df['date']).astype('datetime64[us]')
+        # Multimodal data can be found here:
+        #https://opendata.paris.fr/explore/dataset/comptage-multimodal-comptages/
 
         unique_values_dict = dict(
             zip(mult_df['nearest site'].unique(),
