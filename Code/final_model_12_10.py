@@ -1,6 +1,3 @@
-# %% [code]
-# %% [code]
-# Imports
 from datetime import datetime as dt
 import os
 import joblib
@@ -12,24 +9,165 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.pipeline import Pipeline
 
 
-# Classes Required
 class ColumnSelector(BaseEstimator, TransformerMixin):
+    """
+    Selecting specific columns from a DataFrame.
 
+    Parameters:
+    -----------
+    None
+
+    Methods
+    -------
+    fit(X, y=None):
+        Fit the transformer to the input data.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        y : None
+            Ignored. There is no need for a target
+            variable in this transformer.
+
+        Returns:
+        --------
+        self : ColumnSelector
+            Returns the instance of the transformer.
+
+    transform(X):
+        Transform the input DataFrame by selecting specific columns.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        Returns:
+        --------
+        X_copy : pandas.DataFrame
+            A new DataFrame containing only the selected columns -
+            ['counter_id', 'date', 'site_id', 'log_bike_count'].
+    """
+    
     def fit(self, X, y=None):
+        """
+        Fit the transformer to the input data.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        y : None
+            Ignored. There is no need for a target
+            variable in this transformer.
+
+        Returns:
+        --------
+        self : ColumnSelector
+            Returns the instance of the transformer.
+        """
         return self
 
     def transform(self, X):
+        """
+        Transform the input DataFrame by selecting specific columns.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        Returns:
+        --------
+        X_copy : pandas.DataFrame
+            A new DataFrame containing only the selected columns-
+            ['counter_id', 'date', 'site_id', 'log_bike_count'].
+        """
         X_copy = X.copy()
         X_copy.reset_index(drop=True)
         return X_copy[['counter_id', 'date', 'site_id', 'log_bike_count']]
 
 
 class DateFormatter(BaseEstimator, TransformerMixin):
+    """
+    Extracting date-related features from a DataFrame.
 
+    Parameters:
+    -----------
+    None
+
+    Methods
+    -------
+    fit(X, y=None):
+        Fit the transformer to the input data.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        y : None
+            Ignored. There is no need for a
+            target variable in this transformer.
+
+        Returns:
+        --------
+        self : DateFormatter
+            Returns the instance of the transformer.
+
+    transform(X):
+        Transform the input DataFrame by extracting date-related features.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        Returns:
+        --------
+        X_copy : pandas.DataFrame
+            A new DataFrame with additional columns:
+            ['date', 'month', 'weekday', 'hr', 'hr_sin', 'hr_cos', 'track_id'].
+    """
+    
     def fit(self, X, y=None):
+        """
+        Fit the transformer to the input data.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        y : None
+            Ignored. There is no need for a target
+            variable in this transformer.
+
+        Returns:
+        --------
+        self : DateFormatter
+            Returns the instance of the transformer.
+        """
         return self
 
     def transform(self, X):
+        """
+        Transform the input DataFrame by extracting date-related features.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        Returns:
+        --------
+        X_copy : pandas.DataFrame
+            A new DataFrame with additional columns:
+            ['date', 'month', 'weekday', 'hr', 'hr_sin', 'hr_cos', 'track_id'].
+        """
         X_copy = X.copy()
         X_copy['date'] = pd.to_datetime(X_copy['date'])
         X_copy['month'] = X_copy['date'].dt.month
@@ -45,13 +183,82 @@ class DateFormatter(BaseEstimator, TransformerMixin):
 
 
 class AddRestrictionLevel(BaseEstimator, TransformerMixin):
+    """
+    Adding a 'restriction_level' column based on predefined date ranges.
+
+    Parameters:
+    -----------
+    None
+
+    Methods
+    -------
+    fit(X, y=None):
+        Fit the transformer to the input data.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        y : None
+            Ignored. There is no need for a target
+            variable in this transformer.
+
+        Returns:
+        --------
+        self : AddRestrictionLevel
+            Returns the instance of the transformer.
+
+    transform(X):
+        Transform the input DataFrame by adding a 'restriction_level' column.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        Returns:
+        --------
+        X_copy : pandas.DataFrame
+            A new DataFrame with an additional 'restriction_level' column.
+    """
+
     def fit(self, X, y=None):
+        """
+        Fit the transformer to the input data.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        y : None
+            Ignored. There is no need for a target
+            variable in this transformer.
+
+        Returns:
+        --------
+        self : AddRestrictionLevel
+            Returns the instance of the transformer.
+        """
         return self
 
     def transform(self, X):
+        """
+        Transform the input DataFrame by adding a 'restriction_level' column.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        Returns:
+        --------
+        X_copy : pandas.DataFrame
+            A new DataFrame with an additional 'restriction_level' column.
+        """
         X_copy = X.copy()
 
-        # Define date ranges and corresponding restriction levels
         date_ranges = [
             ('16/10/2020', '17/10/2020'),
             ('17/10/2020', '28/11/2020'),
@@ -66,11 +273,9 @@ class AddRestrictionLevel(BaseEstimator, TransformerMixin):
 
         restriction_levels = [3, 5, 4, 2, 1, 5, 4, 2, 1, 0]
 
-        # Convert date strings to datetime objects
         date_ranges = [(pd.to_datetime(start, dayfirst=True), pd.to_datetime(
             end, dayfirst=True)) for start, end in date_ranges]
 
-        # Add restriction_level column based on date ranges
         X_copy['restriction_level'] = 0  # Default value
         for level, (start_date, end_date) in \
                 (zip(restriction_levels, date_ranges)):
@@ -82,10 +287,82 @@ class AddRestrictionLevel(BaseEstimator, TransformerMixin):
 
 
 class HolidaysFR(BaseEstimator, TransformerMixin):
+    """
+    Selecting specific columns from a DataFrame.
+
+    Parameters:
+    -----------
+    None
+
+    Methods
+    -------
+    fit(X, y=None):
+        Fit the transformer to the input data.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        y : None
+            Ignored. There is no need for a
+            target variable in this transformer.
+
+        Returns:
+        --------
+        self : ColumnSelector
+            Returns the instance of the transformer.
+
+    transform(X):
+        Transform the input DataFrame by selecting specific columns.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        Returns:
+        --------
+        X_copy : pandas.DataFrame
+            A new DataFrame containing only the selected columns,
+            ['counter_id', 'date', 'site_id', 'log_bike_count'].
+    """
+
     def fit(self, X, y=None):
+        """
+        Fit the transformer to the input data.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        y : None
+            Ignored. There is no need for a target
+            variable in this transformer.
+
+        Returns:
+        --------
+        self : HolidaysFR
+            Returns the instance of the transformer.
+        """
         return self
 
     def transform(self, X):
+        """
+        Transform the input DataFrame by adding holiday-related columns.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        Returns:
+        --------
+        X_copy : pandas.DataFrame
+            A new DataFrame with additional columns:
+            ['is_Holiday', 'is_Weekend', 'is_School_Holiday'].
+        """
         def is_holiday(date): return 1 if date in holidays.FR() else 0
         def is_weekend(day): return 1 if day in (6, 7) else 0
         def school_holiday(date, school_hols): return 1 if any(
@@ -108,10 +385,80 @@ class HolidaysFR(BaseEstimator, TransformerMixin):
 
 
 class RushHour(BaseEstimator, TransformerMixin):
+    """
+    Adding 'rush_hour' column based on time and day conditions.
+
+    Parameters:
+    -----------
+    None
+
+    Methods
+    -------
+    fit(X, y=None):
+        Fit the transformer to the input data.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        y : None
+            Ignored. There is no need for a
+            target variable in this transformer.
+
+        Returns:
+        --------
+        self : RushHour
+            Returns the instance of the transformer.
+
+    transform(X):
+        Transform the input DataFrame by adding a 'rush_hour' column.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        Returns:
+        --------
+        X_copy : pandas.DataFrame
+            A new DataFrame with an additional 'rush_hour' column.
+    """ 
+
     def fit(self, X, y=None):
+        """
+        Fit the transformer to the input data.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        y : None
+            Ignored. There is no need for a
+            target variable in this transformer.
+
+        Returns:
+        --------
+        self : RushHour
+            Returns the instance of the transformer.
+        """
         return self
 
     def transform(self, X):
+        """
+        Transform the input DataFrame by adding a 'rush_hour' column.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        Returns:
+        --------
+        X_copy : pandas.DataFrame
+            A new DataFrame with an additional 'rush_hour' column.
+        """
         X_copy = X.copy()
         X_copy['rush_hour'] = \
             ((X_copy['weekday'] <= 5) &
@@ -122,11 +469,82 @@ class RushHour(BaseEstimator, TransformerMixin):
 
 
 class MergeWeatherCovid(BaseEstimator, TransformerMixin):
+    """
+    Merging weather and COVID data with the input DataFrame.
+
+    Parameters:
+    -----------
+    None
+
+    Methods
+    -------
+    fit(X, y=None):
+        Fit the transformer to the input data.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        y : None
+            Ignored. There is no need for a
+            target variable in this transformer.
+
+        Returns:
+        --------
+        self : MergeWeatherCovid
+            Returns the instance of the transformer.
+
+    transform(X):
+        Transform the input DataFrame by merging weather and COVID data.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        Returns:
+        --------
+        merged_data : pandas.DataFrame
+            A new DataFrame resulting from merging the input
+            DataFrame with weather and COVID data.
+    """
 
     def fit(self, X, y=None):
+        """
+        Fit the transformer to the input data.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        y : None
+            Ignored. There is no need for a
+            target variable in this transformer.
+
+        Returns:
+        --------
+        self : MergeWeatherCovid
+            Returns the instance of the transformer.
+        """
         return self
 
     def transform(self, X):
+        """
+        Transform the input DataFrame by merging weather and COVID data.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        Returns:
+        --------
+        merged_data : pandas.DataFrame
+            A new DataFrame resulting from merging the
+            input DataFrame with weather and COVID data.
+        """
         weather_name = '/kaggle/input/mdsb-datasets/weather_data_cleaned.csv'
         data = pd.read_csv(weather_name)
         data['date'] = pd.to_datetime(data['date']).astype('datetime64[us]')
@@ -135,10 +553,83 @@ class MergeWeatherCovid(BaseEstimator, TransformerMixin):
 
 
 class SplitBySite(BaseEstimator, TransformerMixin):
+    """
+    Splitting into sub-DataFrames based on unique site IDs.
+
+    Parameters:
+    -----------
+    None
+
+    Methods
+    -------
+    fit(X, y=None):
+        Fit the transformer to the input data.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        y : None
+            Ignored. There is no need for a target
+            variable in this transformer.
+
+        Returns:
+        --------
+        self : SplitBySite
+            Returns the instance of the transformer.
+
+    transform(X):
+        Transform the input DataFrame by splitting it into
+        sub-DataFrames based on unique site IDs.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        Returns:
+        --------
+        sub_dataframes : list of pandas.DataFrame
+            A list of sub-DataFrames, where each DataFrame
+            corresponds to a unique site ID.
+    """
+
     def fit(self, X, y=None):
+        """
+        Fit the transformer to the input data.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        y : None
+            Ignored. There is no need for a target
+            variable in this transformer.
+
+        Returns:
+        --------
+        self : SplitBySite
+            Returns the instance of the transformer.
+        """
         return self
 
     def transform(self, X):
+        """
+        Transform input DataFrame by splitting based on unique site IDs.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        Returns:
+        --------
+        sub_dataframes : list of pandas.DataFrame
+            A list of sub-DataFrames, where each DataFrame
+            corresponds to a unique site ID.
+        """
         X_copy = X.copy()
         sub_dataframes = []
 
@@ -152,14 +643,85 @@ class SplitBySite(BaseEstimator, TransformerMixin):
 
 
 class MergeMultiModalSites(BaseEstimator, TransformerMixin):
+    """
+    Merging multimodal data, with the input DataFrame.
+
+    Parameters:
+    -----------
+    None
+
+    Methods
+    -------
+    fit(X, y=None):
+        Fit the transformer to the input data.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        y : None
+            Ignored. There is no need for a target variable
+            in this transformer.
+
+        Returns:
+        --------
+        self : MergeMultiModalSites
+            Returns the instance of the transformer.
+
+    transform(X):
+        Transform the input DataFrame by merging multimodal data.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        Returns:
+        --------
+        encoded_dataframes : list of pandas.DataFrame
+            A list of DataFrames resulting from merging the input
+            DataFrame with multimodal data.
+    """
+
     def fit(self, X, y=None):
+        """
+        Fit the transformer to the input data.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        y : None
+            Ignored. There is no need for a target
+            variable in this transformer.
+
+        Returns:
+        --------
+        self : MergeMultiModalSites
+            Returns the instance of the transformer.
+        """
         return self
 
     def transform(self, X):
+        """
+        Transform the input DataFrame by merging multimodal data.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        Returns:
+        --------
+        encoded_dataframes : list of pandas.DataFrame
+            A list of DataFrames resulting from merging the input
+            DataFrame with multimodal data.
+        """
         X_copy = X.copy()
         encoded_dataframes = []
 
-        # Import Multimodal Data
         mulmode_name = '/kaggle/input/mdsb-datasets/multimodal_dummy_clean.csv'
         mult_df = pd.read_csv(mulmode_name)
         mult_df['date'] = pd.to_datetime(
@@ -191,10 +753,83 @@ class MergeMultiModalSites(BaseEstimator, TransformerMixin):
 
 
 class EncodeCounter(BaseEstimator, TransformerMixin):
+    """
+    One-hot encoding the 'counter_id' column in a DataFrame.
+
+    Parameters:
+    -----------
+    None
+
+    Methods
+    -------
+    fit(X, y=None):
+        Fit the transformer to the input data.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        y : None
+            Ignored. There is no need for a target
+            variable in this transformer.
+
+        Returns:
+        --------
+        self : EncodeCounter
+            Returns the instance of the transformer.
+
+    transform(X):
+        Transform the input DataFrame by one-hot
+        encoding the 'counter_id' column.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        Returns:
+        --------
+        encoded_dataframes : list of pandas.DataFrame
+            A list of DataFrames, each resulting from
+            one-hot encoding the 'counter_id' column.
+    """
+
     def fit(self, X, y=None):
+        """
+        Fit the transformer to the input data.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        y : None
+            Ignored. There is no need for a target
+            variable in this transformer.
+
+        Returns:
+        --------
+        self : EncodeCounter
+            Returns the instance of the transformer.
+        """
         return self
 
     def transform(self, X):
+        """
+        One-hot encoding the 'counter_id' column.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        Returns:
+        --------
+        encoded_dataframes : list of pandas.DataFrame
+            A list of DataFrames, each resulting from
+            one-hot encoding the 'counter_id' column.
+        """
         X_copy = X.copy()
         encoded_dataframes = []
 
@@ -207,30 +842,160 @@ class EncodeCounter(BaseEstimator, TransformerMixin):
 
 
 class DropOutliers(BaseEstimator, TransformerMixin):
+    """
+    Removing outliers, from the 'log_bike_count'.
+
+    Parameters:
+    -----------
+    threshold : float, optional (default=3)
+        The threshold for identifying outliers based on the z-score.
+
+    Methods
+    -------
+    fit(X, y=None):
+        Fit the transformer to the input data.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        y : None
+            Ignored. There is no need for a target
+            variable in this transformer.
+
+        Returns:
+        --------
+        self : DropOutliers
+            Returns the instance of the transformer.
+
+    transform(X):
+        Transform the input DataFrame by removing
+        outliers from the 'log_bike_count' column.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        Returns:
+        --------
+        cleaned_dataframes : list of pandas.DataFrame
+            A list of DataFrames, each resulting from
+            removing outliers from the 'log_bike_count' column.
+    """
+
     def __init__(self, threshold=3):
+        """
+        Initialize the transformer with a threshold for identifying outliers.
+
+        Parameters:
+        -----------
+        threshold : float, optional (default=3)
+            The threshold for identifying outliers based on the z-score.
+        """
         self.threshold = threshold
 
     def fit(self, X, y=None):
+        """
+        Fit the transformer to the input data.
+
+        Parameters:
+        -----------
+        X : pandas.DataFrame
+            The input data.
+
+        y : None
+            Ignored. There is no need for a target
+            variable in this transformer.
+
+        Returns:
+        --------
+        self : DropOutliers
+            Returns the instance of the transformer.
+        """
         return self
 
     def transform(self, X):
+        """
+        Transform by removing outliers from 'log_bike_count'.
+
+        Parameters:
+        -----------
+        X_copy : pandas.DataFrame
+            The input data.
+
+        Returns:
+        --------
+        cleaned_dataframes : list of pandas.DataFrame
+            A list of DataFrames, each resulting from removing
+            outliers from the 'log_bike_count' column.
+        """
         X_copy = X.copy()
         cleaned_dataframes = []
         for i in range(len(X_copy)):
             mean_value = X_copy[i]['log_bike_count'].mean()
             std_dev = X_copy[i]['log_bike_count'].std()
-            # Define a threshold
             threshold = 3
-            # Identify outliers
             outliers = (X_copy[i]['log_bike_count'] -
                         mean_value).abs() > threshold * std_dev
-            # Drop outliers
             mask = ~outliers
             cleaned_dataframes.append(X_copy[i][mask])
         return cleaned_dataframes
 
 
 class ModelGen(BaseEstimator, TransformerMixin):
+    """
+    Training and saving CatBoostRegressor models for each site ID.
+
+    Parameters:
+    -----------
+    model : CatBoostRegressor, optional (default=CatBoostRegressor
+    (loss_function='RMSE', depth=10, iterations=200,
+    learning_rate=0.1, verbose=False))
+        The CatBoostRegressor model to be used for training.
+
+    random_state : int, optional (default=42)
+        Random seed for reproducibility.
+
+    save_path : str, optional (default='/kaggle/working/')
+        The directory path to save the trained models.
+
+    Methods
+    -------
+    fit(X, y=None):
+        Fit the transformer to the input data.
+
+        Parameters:
+        -----------
+        X : list of pandas.DataFrame
+            The input data, where each DataFrame corresponds to a
+            different site ID.
+
+        y : None
+            Ignored. There is no need for a
+            target variable in this transformer.
+
+        Returns:
+        --------
+        self : ModelGen
+            Returns the instance of the transformer.
+
+    predict(X):
+        Make predictions on the input data using the trained models.
+
+        Parameters:
+        -----------
+        X : list of pandas.DataFrame
+            The input data, where each DataFrame corresponds to
+            a different site ID.
+
+        Returns:
+        --------
+        predictions : pandas.DataFrame
+            A DataFrame containing predictions for each site ID.
+    """
+
     def __init__(self,
                  model=CatBoostRegressor(loss_function='RMSE',
                                          depth=10, iterations=200,
@@ -238,8 +1003,22 @@ class ModelGen(BaseEstimator, TransformerMixin):
                                          verbose=False),
                  random_state=42,
                  save_path='/kaggle/working/'):
+        """
+        Initialize the ModelGen transformer with specified parameters.
 
-        # Checking for the existence of the target path
+        Parameters:
+        -----------
+        model : CatBoostRegressor, optional
+        (default=CatBoostRegressor(loss_function='RMSE', depth=10,
+        iterations=200, learning_rate=0.1, verbose=False))
+        The CatBoostRegressor model to be used for training.
+
+        random_state : int, optional (default=42)
+        Random seed for reproducibility.
+
+        save_path : str, optional (default='/kaggle/working/')
+        The directory path to save the trained models.
+        """
         if not os.path.exists(save_path):
             os.makedirs(save_path)
 
@@ -249,29 +1028,57 @@ class ModelGen(BaseEstimator, TransformerMixin):
         self.save_path = save_path
 
     def fit(self, X, y=None):
+        """
+        Fit the ModelGen transformer to the input data.
+
+        Parameters:
+        -----------
+        X : list of pandas.DataFrame
+            The input data, where each DataFrame
+            corresponds to a different site ID.
+
+        y : None
+            Ignored. There is no need for a
+            target variable in this transformer.
+
+        Returns:
+        --------
+        self : ModelGen
+        Returns the instance of the transformer.
+        """
         self.best_models = []  # Clear previous best models
         for idx, df in enumerate(X):
-            # Extract DataFrames from the list
             X_train = df.drop(
                 columns=['log_bike_count', 'site_id',
                          'date', 'track_id'], axis=1)
             y_train = df['log_bike_count']
 
-            # Fit the model on the current fold
             self.model.fit(X_train, y_train)
 
-            # Save the trained model to the desktop
             model_filename = \
                 f"site_ID_{df['site_id'].iloc[0]}_model_catboost.joblib"
             model_path = os.path.join(self.save_path, model_filename)
             joblib.dump(self.model, model_path)
 
-            # Store the model for reference
             self.best_models.append(self.model)
 
         return self
 
     def predict(self, X):
+        """
+        Make predictions using the trained models.
+
+        Parameters:
+        -----------
+        X : list of pandas.DataFrame
+            The input data, where each DataFrame
+            corresponds to a different site ID.
+
+        Returns:
+        --------
+        predictions : pandas.DataFrame
+            A DataFrame containing predictions for each site ID.
+        """
         predictions = []
         for idx, df in enumerate(X):
             site_id_value = df['site_id'].iloc[0]
@@ -293,21 +1100,30 @@ class ModelGen(BaseEstimator, TransformerMixin):
 
 
 def add_prediction_column(X):
+    """
+    'prediction' column to each DataFrame from CatBoost models.
+
+    Parameters:
+    -----------
+    X : list of pandas.DataFrame
+        The input data, where each DataFrame corresponds to a
+        different site ID.
+
+    Returns:
+    --------
+    out : pandas.DataFrame
+        A DataFrame containing predictions for each site ID,
+        with a 'prediction' column added.
+    """
     for df in X:
-        # Extract the first value of the column 'site_id'
         site_id_value = df['site_id'].iloc[0]
-        # Construct the path for the model file
         model_filename = f"site_ID_{site_id_value}_model_catboost.joblib"
         model_path = os.path.join('/kaggle/working/', model_filename)
-
-        # Check if the model file exists
         if os.path.exists(model_path):
-            # Load the model
             model = joblib.load(model_path)
-            # Add a column 'prediction' to the DataFrame with model predictions
             df['prediction'] = model.predict(
                 df.drop(columns=['log_bike_count',
-                                 'site_id', 'date', 'track_id'], axis=1))          
+                                 'site_id', 'date', 'track_id'], axis=1))
         else:
             print(f"Model file not found for site_id {site_id_value}")
     out = pd.concat(X, ignore_index=True)
