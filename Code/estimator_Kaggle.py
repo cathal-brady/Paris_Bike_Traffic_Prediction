@@ -125,7 +125,7 @@ class MergeWeatherCovid(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, X):
-        weather_name = 'weather_data_cleaned.csv'
+        weather_name = '/kaggle/input/external-data-final/weather_data_cleaned.csv'
         data = pd.read_csv(weather_name)
         data['date'] = pd.to_datetime(data['date']).astype('datetime64[us]')
         merged_data = pd.merge_asof(X, data, on='date')
@@ -158,7 +158,7 @@ class MergeMultiModalSites(BaseEstimator, TransformerMixin):
         encoded_dataframes = []
 
         # Import Multimodal Data
-        multimodal_name = '/kaggle/input/mdsb-datasets/multimodal_dummy_clean.csv'
+        multimodal_name = '/kaggle/input/external-data-final/multimodal_dummy_clean.csv'
         mult_df = pd.read_csv(multimodal_name)
         mult_df['date'] = pd.to_datetime(
             mult_df['date']).astype('datetime64[us]')
@@ -318,13 +318,13 @@ combined_pipeline = Pipeline([
 ])
 
 # Training and Generating Models:
-train_name = 'train.parquet'
+train_name = '/kaggle/input/mdsb-2023/train.parquet'
 df = pd.read_parquet(train_name)
 train_data = combined_pipeline.fit_transform(df)
 ModelGen().fit(train_data)
 
 # Predicting
-test_name = 'final_test.parquet'
+test_name = '/kaggle/input/mdsb-2023/final_test.parquet'
 df_test = pd.read_parquet(test_name)
 df_test['log_bike_count'] = 0
 
@@ -339,7 +339,7 @@ selected_columns = ['Id', 'log_bike_count']
 result_df = df_sorted[selected_columns]
 
 # Specify the file path
-csv_file_path = 'output .csv'
+csv_file_path = '/kaggle/working/output.csv'
 
 # Write the DataFrame to a CSV file
 result_df.to_csv(csv_file_path, index=False)
