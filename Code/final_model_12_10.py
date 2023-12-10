@@ -9,7 +9,6 @@ import pandas as pd
 import holidays
 from catboost import CatBoostRegressor
 from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.model_selection import KFold
 from sklearn.pipeline import Pipeline
 
 
@@ -73,8 +72,10 @@ class AddRestrictionLevel(BaseEstimator, TransformerMixin):
 
         # Add restriction_level column based on date ranges
         X_copy['restriction_level'] = 0  # Default value
-        for level, (start_date, end_date) in zip(restriction_levels, date_ranges):
-            mask = (X_copy['date'] >= start_date) & (X_copy['date'] < end_date)
+        for level, (start_date, end_date) in \
+                (zip(restriction_levels, date_ranges)):
+            mask = (X_copy['date'] >= start_date) & \
+                (X_copy['date'] < end_date)
             X_copy.loc[mask, 'restriction_level'] = level
 
         return X_copy
@@ -103,7 +104,6 @@ class HolidaysFR(BaseEstimator, TransformerMixin):
         X_copy['is_Weekend'] = X_copy['weekday'].apply(is_weekend)
         X_copy['is_School_Holiday'] = X_copy['date'].apply(
             lambda date: school_holiday(date, school_hols))
-        # X_copy.drop(columns='date', inplace=True)
         return X_copy
 
 
@@ -113,9 +113,10 @@ class RushHour(BaseEstimator, TransformerMixin):
 
     def transform(self, X):
         X_copy = X.copy()
-        X_copy['rush_hour'] = ((X_copy['weekday'] <= 5) &
-                               ((X_copy['hr'].between(7, 9)) | (X_copy['hr'].between(17, 20))) &
-                               (X_copy['is_Holiday'] == 0)).astype(int)
+        X_copy['rush_hour'] = \
+            ((X_copy['weekday'] <= 5) &
+             ((X_copy['hr'].between(7, 9)) | (X_copy['hr'].between(17, 20))) &
+             (X_copy['is_Holiday'] == 0)).astype(int)
         X_copy.drop('hr', axis=1, inplace=True)  # no longer needed
         return X_copy
 
@@ -124,7 +125,7 @@ class MergeWeatherCovid(BaseEstimator, TransformerMixin):
 
     def fit(self, X, y=None):
         return self
-    
+
     def transform(self, X):
         weather_name = '/kaggle/input/mdsb-datasets/weather_data_cleaned.csv'
         data = pd.read_csv(weather_name)
@@ -159,18 +160,20 @@ class MergeMultiModalSites(BaseEstimator, TransformerMixin):
         encoded_dataframes = []
 
         # Import Multimodal Data
-        multimodal_name = '/kaggle/input/mdsb-datasets/multimodal_dummy_clean.csv'
-        mult_df = pd.read_csv(multimodal_name)
+        mulmode_name = '/kaggle/input/mdsb-datasets/multimodal_dummy_clean.csv'
+        mult_df = pd.read_csv(mulmode_name)
         mult_df['date'] = pd.to_datetime(
             mult_df['date']).astype('datetime64[us]')
 
         unique_values_dict = dict(
-            zip(mult_df['nearest site'].unique(), mult_df['minimum distance'].unique()))
+            zip(mult_df['nearest site'].unique(),
+                mult_df['minimum distance'].unique()))
 
         for i in range(len(X_copy)):
             if unique_values_dict[X_copy[i]['site_id'].iloc[0]] > 1:
                 temp = mult_df.drop(
-                    columns=['site_id', 'latitude', 'longitude', 'minimum distance', 'nearest site'])
+                    columns=['site_id', 'latitude', 'longitude',
+                             'minimum distance', 'nearest site'])
                 result_df = temp.groupby('date').mean().reset_index()
                 X_copy[i] = pd.merge_asof(X_copy[i], result_df, on='date')
             else:
@@ -216,20 +219,25 @@ class DropOutliers(BaseEstimator, TransformerMixin):
         for i in range(len(X_copy)):
             mean_value = X_copy[i]['log_bike_count'].mean()
             std_dev = X_copy[i]['log_bike_count'].std()
-            # #Define a threshold
+            # Define a threshold
             threshold = 3
-            # # Identify outliers
+            # Identify outliers
             outliers = (X_copy[i]['log_bike_count'] -
                         mean_value).abs() > threshold * std_dev
-            # # Drop outliers
-            mask = outliers == False
+            # Drop outliers
+            mask = ~outliers
             cleaned_dataframes.append(X_copy[i][mask])
         return cleaned_dataframes
 
 
 class ModelGen(BaseEstimator, TransformerMixin):
-    def __init__(self, model=CatBoostRegressor(loss_function='RMSE', depth=10, iterations=200, learning_rate=0.1, verbose=False),
-                 random_state=42, save_path='/kaggle/working/'):
+    def __init__(self,
+                 model=CatBoostRegressor(loss_function='RMSE',
+                                         depth=10, iterations=200,
+                                         learning_rate=0.1,
+                                         verbose=False),
+                 random_state=42,
+                 save_path='/kaggle/working/'):
 
         # Checking for the existence of the target path
         if not os.path.exists(save_path):
@@ -242,19 +250,19 @@ class ModelGen(BaseEstimator, TransformerMixin):
 
     def fit(self, X, y=None):
         self.best_models = []  # Clear previous best models
-        kf = KFold(n_splits=10, shuffle=True, random_state=self.random_state)
-
         for idx, df in enumerate(X):
             # Extract DataFrames from the list
             X_train = df.drop(
-                columns=['log_bike_count', 'site_id', 'date', 'track_id'], axis=1)
+                columns=['log_bike_count', 'site_id',
+                         'date', 'track_id'], axis=1)
             y_train = df['log_bike_count']
 
             # Fit the model on the current fold
             self.model.fit(X_train, y_train)
 
             # Save the trained model to the desktop
-            model_filename = f"site_ID_{df['site_id'].iloc[0]}_model_catboost.joblib"
+            model_filename = \
+                f"site_ID_{df['site_id'].iloc[0]}_model_catboost.joblib"
             model_path = os.path.join(self.save_path, model_filename)
             joblib.dump(self.model, model_path)
 
@@ -268,12 +276,15 @@ class ModelGen(BaseEstimator, TransformerMixin):
         for idx, df in enumerate(X):
             site_id_value = df['site_id'].iloc[0]
             model_path = os.path.join(
-                self.save_path, f"site_ID_{site_id_value}_model_catboost.joblib")
+                self.save_path,
+                f"site_ID_{site_id_value}_model_catboost.joblib")
 
             if os.path.exists(model_path):
                 model = joblib.load(model_path)
                 df['prediction'] = model.predict(
-                    df.drop(columns=['log_bike_count', 'site_id', 'date', 'track_id'], axis=1))
+                    df.drop(columns=['log_bike_count',
+                                     'site_id', 'date',
+                                     'track_id'], axis=1))
                 predictions.append(df)
             else:
                 print(f"Model file not found for site_id {site_id_value}")
@@ -285,8 +296,6 @@ def add_prediction_column(X):
     for df in X:
         # Extract the first value of the column 'site_id'
         site_id_value = df['site_id'].iloc[0]
-        # df.drop(columns='log_bike_count', inplace=True)
-
         # Construct the path for the model file
         model_filename = f"site_ID_{site_id_value}_model_catboost.joblib"
         model_path = os.path.join('/kaggle/working/', model_filename)
@@ -297,8 +306,8 @@ def add_prediction_column(X):
             model = joblib.load(model_path)
             # Add a column 'prediction' to the DataFrame with model predictions
             df['prediction'] = model.predict(
-                df.drop(columns=['log_bike_count', 'site_id', 'date', 'track_id'], axis=1))
-            # df.drop('log_bike_count', inplace=True)
+                df.drop(columns=['log_bike_count',
+                                 'site_id', 'date', 'track_id'], axis=1))          
         else:
             print(f"Model file not found for site_id {site_id_value}")
     out = pd.concat(X, ignore_index=True)
