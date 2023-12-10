@@ -171,12 +171,10 @@ class DateFormatter(BaseEstimator, TransformerMixin):
         X_copy = X.copy()
         X_copy['date'] = pd.to_datetime(X_copy['date'])
         X_copy['month'] = X_copy['date'].dt.month
-        X_copy['week'] = X_copy['date'].dt.isocalendar().week
         X_copy['weekday'] = (X_copy['date'].dt.dayofweek + 1)
         X_copy['hr'] = X_copy['date'].dt.hour
         X_copy['hr_sin'] = np.sin(X_copy.hr*(2.*np.pi/24))
         X_copy['hr_cos'] = np.cos(X_copy.hr*(2.*np.pi/24))
-        X_copy.drop('week', axis=1, inplace=True)
         X_copy = X_copy.sort_values('date')
         X_copy['track_id'] = X_copy.index
         return X_copy
@@ -472,7 +470,7 @@ class RushHour(BaseEstimator, TransformerMixin):
         return X_copy
 
 
-class MergeWeatherCovid(BaseEstimator, TransformerMixin):
+class MergeWeather(BaseEstimator, TransformerMixin):
     """
     Merging weather and COVID data with the input DataFrame.
 
@@ -1145,7 +1143,7 @@ preprocessor = Pipeline([
     ('add_restriction_level', AddRestrictionLevel()),
     ('holidays_fr', HolidaysFR()),
     ('add_rush_hours', RushHour()),
-    ('MergeWeatherCovid', MergeWeatherCovid()),
+    ('MergeWeatherCovid', MergeWeather()),
 ])
 
 spliter = Pipeline([
