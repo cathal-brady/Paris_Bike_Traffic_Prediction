@@ -1,3 +1,4 @@
+# %% [code]
 # Imports
 from datetime import datetime as dt
 import os
@@ -124,11 +125,10 @@ class MergeWeatherCovid(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, X):
-        data = pd.read_csv(os.path.join(
-            "..", "Datasets", "weather_data_cleaned.csv"))
+        weather_name = 'weather_data_cleaned.csv'
+        data = pd.read_csv(weather_name)
         data['date'] = pd.to_datetime(data['date']).astype('datetime64[us]')
         merged_data = pd.merge_asof(X, data, on='date')
-        # merged_data.drop(columns='date', inplace=True)
         return merged_data
 
 
@@ -158,8 +158,8 @@ class MergeMultiModalSites(BaseEstimator, TransformerMixin):
         encoded_dataframes = []
 
         # Import Multimodal Data
-        mult_df = pd.read_csv(os.path.join(
-            "..", "Datasets", "multimodal_dummy_clean.csv"))
+        multimodal_name = '/kaggle/input/mdsb-datasets/multimodal_dummy_clean.csv'
+        mult_df = pd.read_csv(multimodal_name)
         mult_df['date'] = pd.to_datetime(
             mult_df['date']).astype('datetime64[us]')
 
@@ -228,19 +228,13 @@ class DropOutliers(BaseEstimator, TransformerMixin):
 
 class ModelGen(BaseEstimator, TransformerMixin):
     def __init__(self, model=CatBoostRegressor(loss_function='RMSE', depth=10, iterations=200, learning_rate=0.1, verbose=False),
-                 random_state=42, save_path=(os.path.join("..", "Trained_Models"))):
-
-        # Checking for the existence of the target path
-        if not os.path.exists(save_path):
-            os.makedirs(save_path)
-
+                 random_state=42):
         self.model = model
         self.random_state = random_state
-        self.best_models = []  # List to store the best model from each fold
-        self.save_path = save_path
+        self.best_models = {}  # Dictionary to store the best model from each fold
 
     def fit(self, X, y=None):
-        self.best_models = []  # Clear previous best models
+        self.best_models = {}  # Clear previous best models
         kf = KFold(n_splits=10, shuffle=True, random_state=self.random_state)
 
         for idx, df in enumerate(X):
@@ -252,14 +246,9 @@ class ModelGen(BaseEstimator, TransformerMixin):
             # Fit the model on the current fold
             self.model.fit(X_train, y_train)
 
-            # Save the trained model to the desktop
-            model_filename = f"site_ID_{df['site_id'].iloc[0]}_model_catboost.joblib"
-            model_path = os.path.join(
-                os.path.expanduser(self.save_path), model_filename)
-            joblib.dump(self.model, model_path)
-
-            # Store the model for reference
-            self.best_models.append(self.model)
+            # Store the trained model in memory
+            model_key = f"site_ID_{df['site_id'].iloc[0]}_model_catboost"
+            self.best_models[model_key] = self.model
 
         return self
 
@@ -267,41 +256,39 @@ class ModelGen(BaseEstimator, TransformerMixin):
         predictions = []
         for idx, df in enumerate(X):
             site_id_value = df['site_id'].iloc[0]
-            model_path = os.path.join(
-                self.save_path, f"site_ID_{site_id_value}_model_catboost.joblib")
+            model_key = f"site_ID_{site_id_value}_model_catboost"
 
-            if os.path.exists(model_path):
-                model = joblib.load(model_path)
+            # Load the model from memory
+            model = self.best_models.get(model_key, None)
+
+            if model is not None:
                 df['prediction'] = model.predict(
                     df.drop(columns=['log_bike_count', 'site_id', 'date', 'track_id'], axis=1))
                 predictions.append(df)
             else:
-                print(f"Model file not found for site_id {site_id_value}")
+                print(f"Model not found in memory for site_id {site_id_value}")
 
         return pd.concat(predictions, ignore_index=True)
 
 
-def add_prediction_column(X):
+def add_prediction_column(X, model_gen):
+    predictions = []
     for df in X:
-        # Extract the first value of the column 'site_id'
         site_id_value = df['site_id'].iloc[0]
-        # df.drop(columns='log_bike_count', inplace=True)
+        model_key = f"site_ID_{site_id_value}_model_catboost"
 
-        # Construct the path for the model file
-        model_path = os.path.join(
-            "..", "Trained_Models", f"site_id_{site_id_value}_model_catboost.joblib")
+        # Load the model from memory using the provided ModelGen instance
+        model = model_gen.load_model(model_key)
 
-        # Check if the model file exists
-        if os.path.exists(model_path):
-            # Load the model
-            model = joblib.load(model_path)
+        if model is not None:
             # Add a column 'prediction' to the DataFrame with model predictions
             df['prediction'] = model.predict(
                 df.drop(columns=['log_bike_count', 'site_id', 'date', 'track_id'], axis=1))
-            # df.drop('log_bike_count', inplace=True)
+            predictions.append(df)
         else:
-            print(f"Model file not found for site_id {site_id_value}")
-    out = pd.concat(X, ignore_index=True)
+            print(f"Model not found in memory for site_id {site_id_value}")
+
+    out = pd.concat(predictions, ignore_index=True)
     out.drop(columns='log_bike_count', inplace=True)
 
     return out
@@ -331,12 +318,14 @@ combined_pipeline = Pipeline([
 ])
 
 # Training and Generating Models:
-df = pd.read_parquet(os.path.join("..", "Datasets", "train.parquet"))
+train_name = 'train.parquet'
+df = pd.read_parquet(train_name)
 train_data = combined_pipeline.fit_transform(df)
 ModelGen().fit(train_data)
 
 # Predicting
-df_test = pd.read_parquet(os.path.join("..", "Datasets", "final_test.parquet"))
+test_name = 'final_test.parquet'
+df_test = pd.read_parquet(test_name)
 df_test['log_bike_count'] = 0
 
 # Run Preprocessing Pipeline
@@ -350,7 +339,7 @@ selected_columns = ['Id', 'log_bike_count']
 result_df = df_sorted[selected_columns]
 
 # Specify the file path
-csv_file_path = '/kaggle/working/submission.csv'
+csv_file_path = 'output.csv'
 
 # Write the DataFrame to a CSV file
 result_df.to_csv(csv_file_path, index=False)
