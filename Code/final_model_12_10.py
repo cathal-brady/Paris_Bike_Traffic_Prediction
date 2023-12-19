@@ -8,6 +8,14 @@ from catboost import CatBoostRegressor
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.pipeline import Pipeline
 
+# Change file paths if running locally
+weather_name = '/kaggle/input/mdsb-datasets/weather_data_cleaned.csv'
+mulmode_name = '/kaggle/input/mdsb-datasets/multimodal_dummy_clean.csv'
+save_path = '/kaggle/working/'  # for joblib_files
+train_name = '/kaggle/input/mdsb-2023/train.parquet'
+test_name = '/kaggle/input/mdsb-2023/final_test.parquet'
+csv_file_path = '/kaggle/working/submission.csv'
+
 
 class ColumnSelector(BaseEstimator, TransformerMixin):
     """
@@ -271,7 +279,7 @@ class AddRestrictionLevel(BaseEstimator, TransformerMixin):
 
         restriction_levels = [3, 5, 4, 2, 1, 5, 4, 2, 1, 0]
         # These can be found here:
-        #https://opendata.paris.fr/explore/dataset/observatoire-des\
+        # https://opendata.paris.fr/explore/dataset/observatoire-des\
         #   -mobilites-evenements-exceptionnels-indicateurs-de-mobilites/
 
         date_ranges = [(pd.to_datetime(start, dayfirst=True), pd.to_datetime(
@@ -547,7 +555,6 @@ class MergeWeather(BaseEstimator, TransformerMixin):
             A new DataFrame resulting from merging the
             input DataFrame with weather and COVID data.
         """
-        weather_name = '/kaggle/input/mdsb-datasets/weather_data_cleaned.csv'
         data = pd.read_csv(weather_name)
         data['date'] = pd.to_datetime(data['date']).astype('datetime64[us]')
         merged_data = pd.merge_asof(X, data, on='date')
@@ -724,12 +731,11 @@ class MergeMultiModalSites(BaseEstimator, TransformerMixin):
         X_copy = X.copy()
         encoded_dataframes = []
 
-        mulmode_name = '/kaggle/input/mdsb-datasets/multimodal_dummy_clean.csv'
         mult_df = pd.read_csv(mulmode_name)
         mult_df['date'] = pd.to_datetime(
             mult_df['date']).astype('datetime64[us]')
         # Multimodal data can be found here:
-        #https://opendata.paris.fr/explore/dataset/comptage-multimodal-comptages/
+        # https://opendata.paris.fr/explore/dataset/comptage-multimodal-comptages/
 
         unique_values_dict = dict(
             zip(mult_df['nearest site'].unique(),
@@ -1006,7 +1012,7 @@ class ModelGen(BaseEstimator, TransformerMixin):
                                          learning_rate=0.1,
                                          verbose=False),
                  random_state=42,
-                 save_path='/kaggle/working/'):
+                 save_path=save_path):
         """
         Initialize the ModelGen transformer with specified parameters.
 
@@ -1122,7 +1128,7 @@ def add_prediction_column(X):
     for df in X:
         site_id_value = df['site_id'].iloc[0]
         model_filename = f"site_ID_{site_id_value}_model_catboost.joblib"
-        model_path = os.path.join('/kaggle/working/', model_filename)
+        model_path = os.path.join(save_path, model_filename)
         if os.path.exists(model_path):
             model = joblib.load(model_path)
             df['prediction'] = model.predict(
@@ -1160,13 +1166,11 @@ combined_pipeline = Pipeline([
 ])
 
 # Training and Generating Models:
-train_name = '/kaggle/input/mdsb-2023/train.parquet'
 df = pd.read_parquet(train_name)
 train_data = combined_pipeline.fit_transform(df)
 ModelGen().fit(train_data)
 
 # Predicting
-test_name = '/kaggle/input/mdsb-2023/final_test.parquet'
 df_test = pd.read_parquet(test_name)
 df_test['log_bike_count'] = 0
 
@@ -1179,9 +1183,6 @@ df_sorted.rename(
 # Extract the selected columns
 selected_columns = ['Id', 'log_bike_count']
 result_df = df_sorted[selected_columns]
-
-# Specify the file path
-csv_file_path = '/kaggle/working/submission.csv'
 
 # Write the DataFrame to a CSV file
 result_df.to_csv(csv_file_path, index=False)

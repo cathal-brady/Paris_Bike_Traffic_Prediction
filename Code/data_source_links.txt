@@ -1,0 +1,11 @@
+Covid Restriction Levels:
+https://opendata.paris.fr/explore/dataset/observatoire-des-mobilites-evenements-exceptionnels-indicateurs-de-mobilites/
+
+School Holidays:
+https://www.holidays-info.com/france/school-holidays/2021/
+
+Multimodal Data:
+https://opendata.paris.fr/explore/dataset/comptage-multimodal-comptages/
+
+
+Note we experimented with other weather data as the the given weather dataset was from the Orly weather station (see here https://www.institutdesactuaires.com/docs/mem/5345aad0455dcfc369312e6e56f2a41c.pdf for the ID of the site given in the Excel sheet), and Orly is more than 15km from many of these sites. We tried Paris weather data from PARIS MONTSOURIS, FR(48.817,2.333): https://www.visualcrossing.com/weather/weather-data-services but dropped this

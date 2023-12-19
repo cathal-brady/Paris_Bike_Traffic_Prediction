@@ -1,3 +1,0 @@
-The given weather dataset was from the Orly weather station (see here https://www.institutdesactuaires.com/docs/mem/5345aad0455dcfc369312e6e56f2a41c.pdf
-Orly is more than 15km from many of these sites. We use Paris weather data from PARIS MONTSOURIS, FR(48.817,2.333) 
-Used some weather data from https://www.visualcrossing.com/weather/weather-data-services
