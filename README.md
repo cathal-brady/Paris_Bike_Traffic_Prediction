@@ -10,6 +10,6 @@ All data used is in the **datasets** folder. This includes, weather data from bo
 
 The **code** folder contains our final Python script (final_model_12_10.py) which is the final result of much iteration. Data was cleaned and investigated in Python notebooks which are also in this folder and can be a useful source of information regarding how the data was merged and cleaned etc. but these are not needed to fit the model. 
 
-There is also a folder called **Trained_Models** this is used 
+There is also a folder called **Trained_Models** this is used to dump joblib files for each site_ID into and these are then recollected later for final predictions. If running the code locally you will need to have this folder in place. 
 
 If you have any questions - dont hesitate to reach out to us @ cathal.brady@polytechnique.edu 
