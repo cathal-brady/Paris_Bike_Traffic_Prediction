@@ -1,4 +1,4 @@
-# Cathal & Nadiy Bike Prediction
+# Paris Bike Prediction
 Welcome to our repo for predicting the log hourly traffic at each counter from the 10-09-2021 to the 18-10-2021.
 
 The final Python script can be found in the code folder (Code/final_model_12_10.py). The script was last run on Kaggle so if you are running it locally you will need to change the file paths from where data is collected. These paths have been moved to the top of the script for convenience. 
